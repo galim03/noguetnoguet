@@ -40,7 +40,7 @@ pipeline {
             steps {
                 script {
                     // 도커 이미지를 도커 허브에 푸시
-                    sh "docker push ${DOCKER_IMAGE}"
+                    sh "docker push ${DOCKER_IMAGE}:pushtest"
                 }
             }
         }
