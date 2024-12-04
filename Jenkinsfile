@@ -5,7 +5,7 @@ pipeline {
         DOCKER_IMAGE = 'eungga/noguet'  // 도커 이미지 이름
         DOCKER_REGISTRY = 'docker.io'   // 도커 허브 레지스트리
         DOCKER_CREDENTIALS = 'docker-credentials'  // Jenkins에 저장된 Docker 로그인 자격 증명
-        TEST_PORT = '3030' // 애플리케이션이 실행될 포트
+        TEST_PORT = '3030'
     }
 
     stages {
