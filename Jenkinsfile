@@ -1,6 +1,10 @@
 pipeline {
     agent any
     environment {
+        PROJECT_ID = 'opensource-437302'
+        CLUSTER_ID = 'kube'
+        LOCATION = 'asia-northeast3'
+        CREDENTIAL_ID = 'gke'
         DOCKER_IMAGE = 'eungga/noguet:latest'
     }
     stages {
@@ -34,6 +38,21 @@ pipeline {
                         sh 'docker push $DOCKER_IMAGE'
                     }
                 }
+            }
+        }
+        stage('Deploy to GKE') {
+            when {
+                branch 'main'
+            }
+            step {
+                sh "sed -i 's/hello:latest/eungga/noguet:${env.BUILD_ID}/g' deployment.yaml"
+                step([$class: 'KubernetesEngineBuilder', 
+                      projectId: env.PROJECT_ID, 
+                      clusterName: env.CLUSTER_NAME,
+                      location: env.LOCATION, 
+                      manifestPattern: 'deployment.yaml', 
+                      credentialsId: env.CREDENTIALS_ID,
+                      verifyDeployments: true])
             }
         }
     }
