@@ -1,41 +1,37 @@
 pipeline {
     agent any
     environment {
-        PROJECT_ID = 'opensource-437302'
-        CLUSTER_ID = 'kube'
-        LOCATION = 'asia-northeast3'
-        CREDENTIAL_ID = 'gke'
-        DOCKER_IMAGE = 'eungga/noguet:latest'
+        PROJECT_ID = 'opensource-437302'       // GCP 프로젝트 ID
+        CLUSTER_NAME = 'kube'                  // GKE 클러스터 이름
+        LOCATION = 'asia-northeast3'         // 클러스터 위치
+        CREDENTIALS_ID = 'gke'     // GCP 인증 정보 (Jenkins에서 설정한 Google 서비스 계정 키 파일)
+        DOCKER_IMAGE = 'eungga/noguet:${BUILD_ID}'  // Docker 이미지 이름
     }
     stages {
-        stage('Clone Repository') {
+        stage("Checkout code") {
             steps {
-                git branch: 'main', url: 'https://github.com/galim03/noguetnoguet.git'
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
+                // Git 리포지토리에서 코드를 체크아웃합니다.
                 script {
-                    sh 'docker build -t $DOCKER_IMAGE .'
+                    git url: 'https://github.com/galim03/noguetnoguet.git', branch: 'main'
                 }
             }
         }
 
-        stage('Test Docker Image') {
+        stage("Build Docker image") {
             steps {
                 script {
-                    // Docker 컨테이너에서 main.js 실행
-                    sh 'docker run -d -p 3030:3030 --name noguet_container $DOCKER_IMAGE'
+                    // Docker 이미지를 빌드합니다.
+                    sh "docker build -t eungga/noguet:${BUILD_ID} ."
                 }
             }
         }
 
-        stage('Push to Docker Hub') {
+        stage("Push Docker image") {
             steps {
                 script {
+                    // Docker Hub에 이미지를 푸시합니다.
                     withDockerRegistry([credentialsId: 'docker-credentials', url: 'https://index.docker.io/v1/']) {
-                        sh 'docker push $DOCKER_IMAGE'
+                        sh "docker push eungga/noguet:${BUILD_ID}"
                     }
                 }
             }
@@ -43,35 +39,34 @@ pipeline {
 
         stage('Deploy to GKE') {
             steps {
-                echo 'Deploying to GKE'
+                // 배포 전에 deployment.yaml 파일의 이미지를 최신 빌드 ID로 교체합니다.
                 script {
-                    // GCP 인증
-                    withCredentials([file(credentialsId: CREDENTIAL_ID, variable: 'GCP_CREDENTIALS')]) {
-                        sh 'gcloud auth activate-service-account --key-file=$GCP_CREDENTIALS'
-                        sh 'gcloud container clusters get-credentials $CLUSTER_ID --zone $LOCATION --project $PROJECT_ID'
-                    }
-                    // Kubernetes 배포
-                    sh 'kubectl apply -f deployment.yaml'
+                    sh "sed -i 's/eungga\\/noguet:latest/eungga\\/noguet:${BUILD_ID}/g' deployment.yaml"
                 }
+                
+                // Kubernetes Engine에 배포합니다.
+                step([$class: 'KubernetesEngineBuilder', 
+                      projectId: env.PROJECT_ID, 
+                      clusterName: env.CLUSTER_NAME,
+                      location: env.LOCATION, 
+                      manifestPattern: 'deployment.yaml', 
+                      credentialsId: env.CREDENTIALS_ID,
+                      verifyDeployments: true])
             }
         }
     }
-
     post {
         always {
-            // 컨테이너가 실행 중이면 종료
-            script {
-                sh 'docker stop noguet_container || true'
-                sh 'docker rm noguet_container || true'
-            }
-            echo 'Pipeline completed.'
+            // 항상 실행되는 부분
+            echo "Pipeline completed."
         }
         success {
-            echo 'Pipeline succeeded!'
+            // 성공 시 실행되는 부분
+            echo "Pipeline succeeded!"
         }
         failure {
-            echo 'Pipeline failed.'
+            // 실패 시 실행되는 부분
+            echo "Pipeline failed."
         }
     }
 }
-
