@@ -40,22 +40,23 @@ pipeline {
                 }
             }
         }
+
         stage('Deploy to GKE') {
-            when {
-                branch 'main'
-            }
-            step {
-                sh "sed -i 's/hello:latest/eungga/noguet:${env.BUILD_ID}/g' deployment.yaml"
-                step([$class: 'KubernetesEngineBuilder', 
-                      projectId: env.PROJECT_ID, 
-                      clusterName: env.CLUSTER_NAME,
-                      location: env.LOCATION, 
-                      manifestPattern: 'deployment.yaml', 
-                      credentialsId: env.CREDENTIALS_ID,
-                      verifyDeployments: true])
+            steps {
+                echo 'Deploying to GKE'
+                script {
+                    // GCP 인증
+                    withCredentials([file(credentialsId: CREDENTIAL_ID, variable: 'GCP_CREDENTIALS')]) {
+                        sh 'gcloud auth activate-service-account --key-file=$GCP_CREDENTIALS'
+                        sh 'gcloud container clusters get-credentials $CLUSTER_ID --zone $LOCATION --project $PROJECT_ID'
+                    }
+                    // Kubernetes 배포
+                    sh 'kubectl apply -f deployment.yaml'
+                }
             }
         }
     }
+
     post {
         always {
             // 컨테이너가 실행 중이면 종료
@@ -64,7 +65,6 @@ pipeline {
                 sh 'docker rm noguet_container || true'
             }
             echo 'Pipeline completed.'
-            echo 'noguet deploy test!!'
         }
         success {
             echo 'Pipeline succeeded!'
@@ -74,3 +74,4 @@ pipeline {
         }
     }
 }
+
