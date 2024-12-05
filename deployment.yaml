@@ -17,6 +17,7 @@ spec:
       containers:
       - name: noguet-container
         image: eungga/noguet:latest # 사용하는 Docker 이미지
+        imagePullPolicy: Always
         ports:
         - containerPort: 3030 # 컨테이너 내부에서 사용하는 포트
         resources: # 리소스 요청 및 제한 (옵션)
