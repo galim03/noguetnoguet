@@ -64,6 +64,7 @@ pipeline {
                 sh 'docker rm noguet_container || true'
             }
             echo 'Pipeline completed.'
+            echo 'noguet deploy test'
         }
         success {
             echo 'Pipeline succeeded!'
