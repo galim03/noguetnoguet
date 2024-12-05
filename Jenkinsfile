@@ -1,15 +1,10 @@
 pipeline {
     agent any
-
     environment {
-        DOCKER_IMAGE = 'eungga/noguet'  // 도커 이미지 이름
-        DOCKER_REGISTRY = 'docker.io'   // 도커 허브 레지스트리
-        DOCKER_CREDENTIALS = 'docker-credentials'  // Jenkins에 저장된 Docker 로그인 자격 증명
-        TEST_PORT = '3030'
+        DOCKER_IMAGE = 'eungga/noguet:latest'
     }
-
     stages {
-        stage('Git Clone') {
+        stage('Clone Repository') {
             steps {
                 git branch: 'main', url: 'https://github.com/galim03/noguetnoguet.git'
             }
@@ -18,30 +13,44 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    docker.build(DOCKER_IMAGE)
+                    sh 'docker build -t $DOCKER_IMAGE .'
                 }
             }
         }
 
-        stage('Docker Push') {
+        stage('Test Docker Image') {
             steps {
                 script {
-                    // Docker Hub에 로그인
-                    docker.withRegistry("https://${DOCKER_REGISTRY}", DOCKER_CREDENTIALS) {
-                        // Docker 이미지 푸시
-                        docker.image(DOCKER_IMAGE).push()
+                    // Docker 컨테이너에서 main.js 실행
+                    sh 'docker run -d -p 3030:3030 --name noguet_container $DOCKER_IMAGE'
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                script {
+                    withDockerRegistry([credentialsId: 'docker-credentials', url: 'https://index.docker.io/v1/']) {
+                        sh 'docker push $DOCKER_IMAGE'
                     }
                 }
             }
         }
-
-        stage('Test Application') {
-            steps {
-                script {
-                    // 테스트 서버 실행 (예: 포트 3030)
-                    sh "node main.js"
-                }
+    }
+    post {
+        always {
+            // 컨테이너가 실행 중이면 종료
+            script {
+                sh 'docker stop noguet_container || true'
+                sh 'docker rm noguet_container || true'
             }
+            echo 'Pipeline completed.'
+        }
+        success {
+            echo 'Pipeline succeeded!'
+        }
+        failure {
+            echo 'Pipeline failed.'
         }
     }
 }
